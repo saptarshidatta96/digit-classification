@@ -1,0 +1,120 @@
+"""
+================================
+Recognizing hand-written digits
+================================
+
+This example shows how scikit-learn can be used to recognize images of
+hand-written digits, from 0-9.
+
+"""
+
+# Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
+# License: BSD 3 clause
+
+# Standard scientific Python imports
+import matplotlib; matplotlib.use('agg'); import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from itertools import product as pdt
+
+# Import datasets, classifiers and performance metrics
+from sklearn import datasets, svm, metrics
+from sklearn.model_selection import train_test_split
+from skimage.transform import resize
+
+
+
+digits = datasets.load_digits()
+n_samples = len(digits.images)
+data = digits.images.reshape((n_samples, -1))
+
+# model hyperparams
+GAMMA = [0.0001,0.0002,0.0003,0.0004,0.0005, 0.0006, 0.0007, 0.0008, 0.0009, 0.001]
+C = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]
+# Create a classifier: a support vector classifier
+clf = svm.SVC()
+
+
+# Split data into 80% train and 10% test subsets
+X_train, X_test, y_train, y_test = train_test_split(
+    data, digits.target, test_size=0.2, shuffle=True
+)
+
+# Split train data into 80% train and 10% dev subset
+X_train, X_dev, y_train, y_dev = train_test_split(X_train, y_train, test_size=0.2, shuffle=True)
+gamma_=[]
+c_=[]
+accuracy=[]
+train_accuracy=[]
+dev_accuracy=[]
+test_accuracy=[]
+
+# Creating hyperparameters combinations
+samples=pdt(GAMMA,C)
+
+# iterating over each hyperparameter combinations
+for Gamma,c in samples:
+
+#PART: setting up hyperparameter
+    hyper_params = {'gamma':Gamma, 'C':c}
+    clf.set_params(**hyper_params)
+
+
+# Learn the digits on the train subset
+    clf.fit(X_train, y_train)
+
+# Predict the value of the digit on the train, dev, test datasets
+    # Getting training accuracy
+    train_prediction = clf.predict(X_train)
+    train_accuracy.append(metrics.accuracy_score(y_train, train_prediction))
+
+    # Getting dev accuracy
+    dev_prediction = clf.predict(X_dev)
+    dev_accuracy.append(metrics.accuracy_score(y_dev,dev_prediction))
+
+    # Getting test accuracy
+    test_prediction = clf.predict(X_test)
+    test_accuracy.append(metrics.accuracy_score(y_test, test_prediction))
+    gamma_.append(Gamma)
+    c_.append(c)
+
+gamma_ = np.asarray(gamma_)
+c_ = np.asarray(c_)
+train_accuracy = np.array(train_accuracy)
+dev_accuracy = np.array(dev_accuracy)
+test_accuracy = np.array(test_accuracy)
+combine=np.vstack((gamma_, c_, train_accuracy, dev_accuracy, test_accuracy))
+combine=combine.T
+column_values = ['GAMMA', 'C', 'Train Accuracy', 'Dev Accuracy', 'Test Accuracy']
+df = pd.DataFrame(data = combine, columns=column_values)
+
+
+
+print("Accuracy and hyperparameter matrix for original image")
+print(df)
+print('\n')
+
+def print_accuracy(accuracy):
+    print('Minimum Accuracy {}'.format(np.min(accuracy)))
+    print('Max Accuracy {}'.format(np.min(accuracy)))
+    print('Mean Accuracy {}'.format(np.mean(accuracy)))
+    print('Median Accuracy {}'.format(np.median(accuracy)))
+    print('\n')
+
+print('train accuravy')
+print_accuracy(train_accuracy)
+print('dev accuracy')
+print_accuracy(dev_accuracy)
+print('test accuracy')
+print_accuracy(test_accuracy)
+
+print('Metrics for Best Accuracy on Dev Set')
+i= dev_accuracy.argmax()
+
+print("Gamma=",gamma_[i],)
+print("C=", c_[i])
+print("Train Accuracy=%.2f" %(train_accuracy[i]*100), '%')
+print("Dev Accuracy=%.2f" %(dev_accuracy[i]*100), '%')
+print("Test Accuracy=%.2f" %(test_accuracy[i]*100), '%' )
+
+
