@@ -1,97 +1,138 @@
-"""
-================================
-Recognizing hand-written digits
-================================
-
-This example shows how scikit-learn can be used to recognize images of
-hand-written digits, from 0-9.
-
-"""
-
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # License: BSD 3 clause
 
-# Standard scientific Python imports
-#import matplotlib.pyplot as plt
+
+# PART: library dependencies -- sklear, torch, tensorflow, numpy, transformers
 
 # Import datasets, classifiers and performance metrics
-from sklearn import datasets, svm, metrics
-from sklearn.model_selection import train_test_split
-import numpy as np
-import pytest
-import math
+from poplib import CR
+from sklearn import datasets, svm, metrics, tree
+from itertools import product as pdt
+from joblib import dump, load
 
-###############################################################################
-# Digits dataset
-# --------------
-#
-# The digits dataset consists of 8x8
-# pixel images of digits. The ``images`` attribute of the dataset stores
-# 8x8 arrays of grayscale values for each image. We will use these arrays to
-# visualize the first 4 images. The ``target`` attribute of the dataset stores
-# the digit each image represents and this is included in the title of the 4
-# plots below.
-#
-# Note: if we were working from image files (e.g., 'png' files), we would load
-# them using :func:`matplotlib.pyplot.imread`.
+from utils import (
+    get_accuracy,
+    preprocess_digits,
+    train_dev_test_split,
+    h_param_tuning_svm,
+    #data_viz,
+    #pred_image_viz,
+    random_split_generator,
+    h_param_tuning_dect,
+    get_accuracy,
+    get_mean,
+    get_std,
+)
 
+
+
+train_fracs, dev_fracs, test_fracs = random_split_generator(5)
+#print(train_frac,'\n', dev_frac, '\n', test_frac)
+
+# set the hyper parameters SVM
+GAMMA = [0.0001, 0.0004, 0.0005, 0.0008, 0.001]
+C = [0.5, 2.0, 3.0, 4.0, 5.0]
+
+# 2. set hyper parameters for decision tree classifier
+Criterion = ['gini', 'entropy']
+Splitter = ['best', 'random']
+
+
+# Loading dataset
 digits = datasets.load_digits()
+#data_viz(digits)
+data, label = preprocess_digits(digits)
+
+# Create a svm classifier
+clf_svm = svm.SVC()
+
+# create a decision tree classifier
+clf_dect = tree.DecisionTreeClassifier()
+
+best_prediction_accuracy_svm =[]
+best_prediction_accuracy_dect = []
 
 
+for i in range(0, 5):
+    # Creating hyperparameters combination for SVM
+    h_param_comb_svm = pdt(GAMMA,C)
+    # Creating hyperparameter Combination for Decision Tree Classifier
+    h_param_comb_dect = pdt(Criterion, Splitter)
+    
 
-###############################################################################
-# Classification
-# --------------
-#
-# To apply a classifier on this data, we need to flatten the images, turning
-# each 2-D array of grayscale values from shape ``(8, 8)`` into shape
-# ``(64,)``. Subsequently, the entire dataset will be of shape
-# ``(n_samples, n_features)``, where ``n_samples`` is the number of images and
-# ``n_features`` is the total number of pixels in each image.
-#
-# We can then split the data into train and test subsets and fit a support
-# vector classifier on the train samples. The fitted classifier can
-# subsequently be used to predict the value of the digit for the samples
-# in the test subset.
-
-# flatten the images
-n_samples = len(digits.images)
-data = digits.images.reshape((n_samples, -1))
-
-# Create a classifier: a support vector classifier
-clf = svm.SVC(gamma=0.001)
-
-# Split data into 50% train and 50% test subsets
-X_train, X_test, y_train, y_test = train_test_split(
-    data, digits.target, test_size=0.5, shuffle=False
-)
-
-# Learn the digits on the train subset
-clf.fit(X_train, y_train)
-
-# Predict the value of the digit on the test subset
-predicted = clf.predict(X_test)
-
-print(predicted)
+    x_train, y_train, x_dev, y_dev, x_test, y_test = train_dev_test_split(
+        data, label, train_fracs[i], dev_fracs[i]
+    )
 
 
+    # getting best model for SVM
+    best_model_svm, best_metric_svm, best_h_params_svm = h_param_tuning_svm(
+        h_param_comb_svm, clf_svm, x_train, y_train, x_dev, y_dev)
+    
 
-print(
-    f"Classification report for classifier {clf}:\n"
-    f"{metrics.classification_report(y_test, predicted)}\n"
-)
+    # save the best_model for SVM 
+    best_param_config_svm = "_".join([param + "=" + str(best_h_params_svm[param]) for param in best_h_params_svm])
+    dump(best_model_svm, "svm_" + best_param_config_svm + ".joblib")
 
+    # getting best model for Decision Tree Classifier
+    best_model_dect, best_metric_dect, best_h_params_dect = h_param_tuning_dect(
+        h_param_comb_dect, clf_dect, x_train, y_train, x_dev, y_dev)
 
-
-
-def test_unbiased_classifier():
-    target_names = ['0', '1', '2', '3', '4', '5', '6', '6', '7', '8', '9']
-    cm = metrics.confusion_matrix(y_test, predicted)
-    cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    print(cm)
-    acc = cm.diagonal()
-
-    #test case
-    assert np.any(acc < 0.5) == True
+    # save the best model for Decision Tree Classifier
+    best_param_config_dect = "_".join([param + "=" + str(best_h_params_dect[param]) for param in best_h_params_dect])
+    dump(best_model_dect, "dect_" + best_param_config_dect + ".joblib")
 
 
+    # load the best_model for SVM
+    best_model_svm = load("svm_" + best_param_config_svm + ".joblib")
+
+    # load the best_model for Decision Tree Classifier
+    best_model_dect = load("dect_" + best_param_config_dect + ".joblib")
+
+    # Predict the value of the digit on the test set for SVM Model
+    predicted_svm = best_model_svm.predict(x_test)
+
+    # Predict the value of the digit on the test set for Decision Tree Classifier
+    predicted_dect = best_model_dect.predict(x_test)
+
+    #pred_image_viz(x_test, predicted_svm)
+
+    # Compute evaluation metrics for SVM
+    print(
+        f"Classification report for SVM classifier {clf_svm}:\n"
+        f"{metrics.classification_report(y_test, predicted_svm)}\n"
+    )
+
+    print("Best hyperparameters for SVM Classifier were:")
+    print(best_h_params_svm)
+    print('\n\n')
+
+    # Compute evaluation metrics for Decision Tree Classifier
+    print(
+        f"Classification report for Decision Tree classifier {clf_dect}:\n"
+        f"{metrics.classification_report(y_test, predicted_dect)}\n"
+    )
+
+    print("Best hyperparameters for Decision Tree Classifier were:")
+    print(best_h_params_svm)
+    print('\n\n\n\n')
+
+    # prediction accuracy for each train, dev, test set for svm and decision tree
+    predict_accuracy_svm = get_accuracy(y_test, predicted_svm)
+    predict_accuracy_dect = get_accuracy(y_test, predicted_dect)
+
+    # storing accuracies for future use
+    best_prediction_accuracy_svm.append(predict_accuracy_svm)
+    best_prediction_accuracy_dect.append(predict_accuracy_dect)
+print("accuracy list svm: ", best_prediction_accuracy_svm)
+print("accuracy list decision tree: ", best_prediction_accuracy_dect)
+print('\n\n')
+
+# calculating mean and standard deviation of accuracy for svm and decision tree classifier
+svm_accuracy_mean = get_mean(best_prediction_accuracy_svm)
+svm_accuracy_std = get_std(best_prediction_accuracy_svm)
+dect_accuracy_mean = get_mean(best_prediction_accuracy_dect)
+dect_accuracy_std = get_std(best_prediction_accuracy_dect)
+
+print("Mean accuracy for SVM: ", svm_accuracy_mean, '\nStandard deviation for accuarcy for SVM', svm_accuracy_std)
+print("Mean accuracy for Decision Tree Classifier: ", dect_accuracy_mean, '\nStandard deviation for accuarcy for Decision Tree Classifier', dect_accuracy_std)
