@@ -1,9 +1,7 @@
 # Model Comparison
 
- 1 x x
- 2 x x
- 3 x x
- 4 x x
- 5 x x
- mean x x
- std x x
+| Tables        | Are           | Cool  |
+| ------------- |:-------------:| -----:|
+| col 3 is      | right-aligned | $1600 |
+| col 2 is      | centered      |   $12 |
+| zebra stripes | are neat      |    $1 |
