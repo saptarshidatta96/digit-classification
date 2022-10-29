@@ -1,7 +1,10 @@
 # Model Comparison
 
-| Tables        | Are           | Cool  |
-| ------------- |:-------------:| -----:|
-| col 3 is      | right-aligned | $1600 |
-| col 2 is      | centered      |   $12 |
-| zebra stripes | are neat      |    $1 |
+| run  | svm           | decison tree  |
+| ---- |:-------------:| -----:|
+| 1    | right-aligned | $1600 |
+| 2    | centered      |   $12 |
+| 3    | centered      |   $12 |
+| 4    | centered      |   $12 |
+| 5    | centered      |   $12 |
+
